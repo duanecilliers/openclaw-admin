@@ -195,7 +195,18 @@ export default function AgentDetailTabs() {
   const activeFile = fileForTab(activeTab)
 
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
+    <div className="mt-6">
+      {/* Shared workspace label */}
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground/60">
+          Shared Workspace
+        </span>
+        <span className="text-[10px] text-muted-foreground/40">
+          — edits apply to all agents
+        </span>
+      </div>
+
+    <Tabs value={activeTab} onValueChange={setActiveTab}>
       <TabsList className="gap-1 bg-secondary/50">
         {FILE_TABS.map(({ value, label, file }) => {
           const exists = fileExistence.get(file)
@@ -239,5 +250,6 @@ export default function AgentDetailTabs() {
         </div>
       </TabsContent>
     </Tabs>
+    </div>
   )
 }

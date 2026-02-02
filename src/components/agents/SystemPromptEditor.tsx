@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { FileText, Save, Loader2, Check } from 'lucide-react'
+import { FileText, Save, Loader2, Check, RotateCcw, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAgentPrompt } from '@/hooks/useAgentPrompt'
+import { gatewayApi } from '@/lib/api'
 
 interface SystemPromptEditorProps {
   agentId: string
@@ -12,6 +13,8 @@ export default function SystemPromptEditor({ agentId, agentName }: SystemPromptE
   const { query, mutation } = useAgentPrompt(agentId)
   const [draft, setDraft] = useState('')
   const [showSuccess, setShowSuccess] = useState(false)
+  const [needsRestart, setNeedsRestart] = useState(false)
+  const [isRestarting, setIsRestarting] = useState(false)
   const prevAgentId = useRef(agentId)
 
   // Sync draft with fetched prompt
@@ -27,6 +30,7 @@ export default function SystemPromptEditor({ agentId, agentName }: SystemPromptE
       prevAgentId.current = agentId
       setDraft('')
       setShowSuccess(false)
+      setNeedsRestart(false)
       mutation.reset()
     }
   }, [agentId, mutation])
@@ -41,11 +45,25 @@ export default function SystemPromptEditor({ agentId, agentName }: SystemPromptE
       {
         onSuccess: () => {
           setShowSuccess(true)
+          setNeedsRestart(true)
           setTimeout(() => setShowSuccess(false), 2000)
         },
       }
     )
   }, [agentId, draft, isDirty, isSaving, mutation])
+
+  const handleRestart = useCallback(async () => {
+    setIsRestarting(true)
+    try {
+      await gatewayApi.restart()
+      setNeedsRestart(false)
+    } catch {
+      // Restart may drop the connection — that's expected
+      setNeedsRestart(false)
+    } finally {
+      setIsRestarting(false)
+    }
+  }, [])
 
   // Cmd/Ctrl+S keyboard shortcut
   const handleKeyDown = useCallback(
@@ -93,6 +111,35 @@ export default function SystemPromptEditor({ agentId, agentName }: SystemPromptE
 
   return (
     <div className="mt-6">
+      {/* Restart needed banner */}
+      {needsRestart && (
+        <div className="mb-3 flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2.5">
+          <div className="flex items-center gap-2 text-sm text-amber-400">
+            <AlertTriangle className="size-4 shrink-0" />
+            <span>Config saved. Restart gateway for changes to take effect.</span>
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleRestart}
+            disabled={isRestarting}
+            className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 gap-1.5"
+          >
+            {isRestarting ? (
+              <>
+                <Loader2 className="size-3.5 animate-spin" />
+                Restarting…
+              </>
+            ) : (
+              <>
+                <RotateCcw className="size-3.5" />
+                Restart Now
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+
       {/* Section header */}
       <div className="flex items-center gap-2 mb-3">
         <FileText className="size-4 text-muted-foreground" />
