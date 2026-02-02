@@ -60,4 +60,31 @@ cron.post('/:id/run', async (c) => {
   }
 })
 
+// POST /api/cron — create a new job
+cron.post('/', async (c) => {
+  try {
+    const body = await c.req.json()
+    if (!body.schedule || !body.payload) {
+      return c.json({ error: 'Missing "schedule" and/or "payload"' }, 400)
+    }
+    const data = await readJobs()
+    const id = crypto.randomUUID()
+    const job: any = {
+      id,
+      name: body.name ?? null,
+      enabled: body.enabled ?? true,
+      sessionTarget: body.sessionTarget ?? 'isolated',
+      schedule: body.schedule,
+      payload: body.payload,
+      createdAtMs: Date.now(),
+      updatedAtMs: Date.now(),
+    }
+    data.jobs.push(job)
+    await writeJobs(data)
+    return c.json(job, 201)
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500)
+  }
+})
+
 export default cron

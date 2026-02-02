@@ -101,8 +101,18 @@ export interface CronJob {
   state?: { lastRunAtMs?: number; lastStatus?: string; nextRunAtMs?: number; lastDurationMs?: number }
 }
 
+export interface CreateCronJob {
+  name?: string
+  enabled?: boolean
+  sessionTarget?: string
+  schedule: CronJob['schedule']
+  payload: CronJob['payload']
+}
+
 export const cronApi = {
   list: () => fetchJSON<CronJob[]>('/cron'),
+  create: (data: CreateCronJob) =>
+    fetchJSON<CronJob>('/cron', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: Partial<CronJob>) =>
     fetchJSON<CronJob>(`/cron/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   remove: (id: string) => fetchJSON<void>(`/cron/${id}`, { method: 'DELETE' }),

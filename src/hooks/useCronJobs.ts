@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { cronApi, type CronJob } from '../lib/api'
+import { cronApi, type CronJob, type CreateCronJob } from '../lib/api'
 
 const CRON_KEY = ['cron', 'jobs'] as const
 
@@ -28,6 +28,14 @@ export function useToggleCronJob() {
       if (ctx?.prev) qc.setQueryData(CRON_KEY, ctx.prev)
     },
     onSettled: () => qc.invalidateQueries({ queryKey: CRON_KEY }),
+  })
+}
+
+export function useCreateCronJob() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: CreateCronJob) => cronApi.create(data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: CRON_KEY }),
   })
 }
 
