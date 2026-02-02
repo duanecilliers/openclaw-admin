@@ -83,6 +83,28 @@ export const skillsApi = {
 
 // === Workspace Types ===
 
+// === Cron Types ===
+
+export interface CronJob {
+  id: string
+  name?: string
+  enabled: boolean
+  schedule: { kind: string; expr?: string; tz?: string; atMs?: number; everyMs?: number }
+  payload: { kind: string; message?: string; channel?: string; to?: string; text?: string; deliver?: boolean }
+  state?: { lastRunAtMs?: number; lastStatus?: string; nextRunAtMs?: number; lastDurationMs?: number }
+}
+
+export const cronApi = {
+  list: () => fetchJSON<CronJob[]>('/cron'),
+  update: (id: string, data: Partial<CronJob>) =>
+    fetchJSON<CronJob>(`/cron/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  remove: (id: string) => fetchJSON<void>(`/cron/${id}`, { method: 'DELETE' }),
+  run: (id: string) =>
+    fetchJSON<{ success: boolean; message: string }>(`/cron/${id}/run`, { method: 'POST' }),
+}
+
+// === Workspace Types ===
+
 export const workspaceApi = {
   listFiles: () => fetchJSON<WorkspaceFileInfo[]>('/workspace/files'),
   getFile: (name: string) => fetchJSON<WorkspaceFile>(`/workspace/file/${name}`),
