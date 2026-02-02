@@ -123,6 +123,22 @@ Each bot account goes in `channels.discord.accounts`. The **default** account is
 - **Channel ID**: Right-click a channel → Copy Channel ID
 - **User ID**: Right-click your username → Copy User ID
 
+### Channel Permissions
+
+For clean separation, configure Discord so each persona bot only sees its assigned channel, and your primary bot doesn't see persona channels:
+
+1. **Create a role** called `Persona Bots` (no special permissions needed — it's just a grouping role)
+2. **Assign the role** to all persona bots (not the primary bot)
+3. **For each persona channel** (e.g. `#fitness`, `#coding`):
+   - Edit channel permissions
+   - Add the `Persona Bots` role → **Deny** `View Channel`
+   - Add the specific bot (e.g. Coach) → **Allow** `View Channel`, `Send Messages`, `Read Message History`, `Add Reactions`
+4. **For general channels** the primary bot uses:
+   - No changes needed — the primary bot isn't in the `Persona Bots` role, so it sees everything as normal
+   - Optionally deny the `Persona Bots` role on general channels to keep them fully isolated
+
+> **Result:** Each persona bot sees only its own channel. The primary bot sees everything except persona-specific channels. No cross-talk.
+
 ## Tech Stack
 
 | Layer | Tech |
