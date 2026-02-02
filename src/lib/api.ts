@@ -31,11 +31,17 @@ export const gatewayApi = {
 
 // === Agent Types ===
 
+export interface AgentChannel {
+  id: string
+  name: string
+}
+
 export interface Agent {
   id: string
   name: string
   description: string
   avatarUrl: string | null
+  channels: AgentChannel[]
   channelId: string | null
   guildId: string | null
   skillCount: number

@@ -1,3 +1,4 @@
+import { Hash } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Agent } from '@/lib/api'
 import AgentAvatar from './AgentAvatar'
@@ -9,6 +10,10 @@ interface AgentListItemProps {
 }
 
 export default function AgentListItem({ agent, selected, onClick }: AgentListItemProps) {
+  const channelLabel = agent.channels.length > 0
+    ? agent.channels.map((c) => c.name).join(', ')
+    : null
+
   return (
     <button
       onClick={onClick}
@@ -22,9 +27,15 @@ export default function AgentListItem({ agent, selected, onClick }: AgentListIte
       <AgentAvatar name={agent.name} avatarUrl={agent.avatarUrl} size="sm" />
       <div className="min-w-0 flex-1">
         <div className="font-medium text-white truncate">{agent.name}</div>
-        <div className="text-sm text-muted-foreground">
+        <div className="text-xs text-muted-foreground">
           {agent.skillCount} skill{agent.skillCount !== 1 ? 's' : ''}
         </div>
+        {channelLabel && (
+          <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground/70 truncate">
+            <Hash className="size-3 shrink-0" />
+            <span className="truncate">{channelLabel}</span>
+          </div>
+        )}
       </div>
     </button>
   )
