@@ -1,73 +1,81 @@
-# React + TypeScript + Vite
+# OpenClaw Admin
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Web-based admin dashboard for managing an [OpenClaw](https://github.com/openclaw/openclaw) instance. Built for local, single-user use.
 
-Currently, two official plugins are available:
+![Agents view](reference-ui.png)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
 
-## React Compiler
+- **Agent Management** — View and edit Discord persona bots with live avatars from Discord API. Edit system prompts per agent with restart-on-save flow.
+- **Workspace Files** — Edit shared workspace files (SOUL.md, USER.md, AGENTS.md, MEMORY.md, TOOLS.md) with CodeMirror 6 and syntax highlighting.
+- **Skills Browser** — Read-only inventory of installed skills, grouped by category.
+- **Cron Jobs** — View, create, toggle, trigger, and delete scheduled jobs. Supports cron expressions, intervals, system events, and agent turns.
+- **Channel Routing** — Visualize per-account bot → channel routing for Discord's multi-account architecture.
+- **Config Viewer** — Read-only JSON view of the full OpenClaw config.
+- **Gateway Controls** — Live status, restart button, connection monitoring.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Tech Stack
 
-## Expanding the ESLint configuration
+| Layer | Tech |
+|-------|------|
+| Frontend | Vite + React 19 + TypeScript |
+| Styling | Tailwind CSS 4 + shadcn/ui |
+| Editor | CodeMirror 6 |
+| Data | TanStack Query |
+| Backend | Hono.js (Node) |
+| Config | Direct read/write to `~/.openclaw/openclaw.json` |
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Quick Start
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+```bash
+# Install dependencies
+npm install
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Start dev servers (frontend :5180 + API :5181)
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The frontend proxies `/api` requests to the backend. Both servers hot-reload on file changes.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Scripts
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start both frontend and API servers |
+| `npm run dev:fe` | Frontend only (port 5180) |
+| `npm run dev:api` | API only (port 5181) |
+| `npm run build` | Production build |
+| `npm run preview` | Preview production build |
+
+## Architecture
+
 ```
+src/                    # React frontend
+├── components/         # UI components (agents, channels, cron, editor, etc.)
+├── hooks/              # TanStack Query hooks
+├── lib/                # API client, utilities
+├── pages/              # Tab page components
+└── main.tsx
+
+server/                 # Hono.js backend
+├── routes/             # API route handlers
+├── lib/                # Config, cron, agents, gateway helpers
+└── index.ts
+```
+
+### Key Design Decisions
+
+- **Agents = Discord bot accounts** — Maps to `channels.discord.accounts` in the OpenClaw config. Each persona bot has its own guilds config defining which channels it responds in.
+- **Atomic config writes** — All config mutations write to a temp file, backup the current config, then atomic rename. 10 timestamped backups kept in `~/.openclaw/backups/`.
+- **Discord API caching** — Bot avatars and guild channel names fetched from Discord API, cached in memory for 30 minutes.
+- **No auth** — Local-only tool, no authentication layer.
+
+## Requirements
+
+- Node.js 20+
+- OpenClaw installed and configured at `~/.openclaw/openclaw.json`
+- Discord bot tokens in the OpenClaw config (for avatar/channel resolution)
+
+## License
+
+Private — not yet licensed for distribution.
