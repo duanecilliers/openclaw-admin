@@ -1,4 +1,4 @@
-import { MessageSquare, Hash, Users, Shield } from 'lucide-react'
+import { MessageSquare, Hash, Users, Shield, Globe } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import type { ChannelOverview } from '@/lib/api'
 
@@ -46,12 +46,6 @@ interface DiscordCardProps {
 }
 
 export function DiscordCard({ config }: DiscordCardProps) {
-  const totalChannels = config.guilds.reduce((sum, g) => sum + g.channelCount, 0)
-  const promptChannels = config.guilds.reduce(
-    (sum, g) => sum + g.channels.filter((ch) => ch.hasPrompt && ch.id !== '*').length,
-    0,
-  )
-
   return (
     <div className="rounded-lg border border-border/40 bg-secondary/40 p-4">
       <div className="flex items-center justify-between">
@@ -63,7 +57,7 @@ export function DiscordCard({ config }: DiscordCardProps) {
           </div>
           <div>
             <h3 className="text-sm font-semibold text-white">Discord</h3>
-            <p className="text-xs text-muted-foreground">Bot platform</p>
+            <p className="text-xs text-muted-foreground">Multi-account bot platform</p>
           </div>
         </div>
         <Badge
@@ -81,42 +75,21 @@ export function DiscordCard({ config }: DiscordCardProps) {
       <div className="mt-4 flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Users className="size-3" />
-          <span>{config.accounts.length} accounts</span>
+          <span>{config.accountCount} bot accounts</span>
         </div>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Hash className="size-3" />
-          <span>{totalChannels} channels</span>
+          <span>{config.personaChannels} persona channels</span>
         </div>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <MessageSquare className="size-3" />
-          <span>{promptChannels} with persona prompts</span>
+          <Globe className="size-3" />
+          <span>{config.guildIds.length} guild{config.guildIds.length !== 1 ? 's' : ''}</span>
         </div>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Shield className="size-3" />
           <span>Policy: {config.groupPolicy}</span>
         </div>
       </div>
-
-      {/* Guild details */}
-      {config.guilds.length > 0 && (
-        <div className="mt-4 space-y-2">
-          <h4 className="text-xs font-medium text-zinc-400 uppercase tracking-wide">Guilds</h4>
-          {config.guilds.map((guild) => (
-            <div
-              key={guild.id}
-              className="flex items-center justify-between rounded-md bg-zinc-800/50 px-3 py-2"
-            >
-              <span className="text-xs font-mono text-muted-foreground">{guild.id}</span>
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <span>{guild.channelCount} channels</span>
-                <span>
-                  {guild.channels.filter((ch) => ch.hasPrompt && ch.id !== '*').length} with prompts
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   )
 }

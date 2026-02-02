@@ -112,17 +112,29 @@ export const cronApi = {
 
 // === Channel Types ===
 
+export interface DiscordAccountChannel {
+  id: string
+  name: string | null
+  hasPrompt: boolean
+  isWildcard: boolean
+}
+
+export interface DiscordAccountInfo {
+  id: string
+  name: string
+  isDefault: boolean
+  channels: DiscordAccountChannel[]
+}
+
 export interface ChannelOverview {
   telegram?: { enabled: boolean; groupPolicy: string }
   discord?: {
     enabled: boolean
     groupPolicy: string
-    accounts: { id: string; name: string }[]
-    guilds: {
-      id: string
-      channelCount: number
-      channels: { id: string; hasPrompt: boolean }[]
-    }[]
+    accountCount: number
+    personaChannels: number
+    guildIds: string[]
+    accounts: DiscordAccountInfo[]
   }
 }
 
