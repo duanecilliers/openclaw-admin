@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'fs/promises'
+import { readFile, writeFile, rename } from 'fs/promises'
 import { execFile } from 'child_process'
 import { homedir } from 'os'
 import { join } from 'path'
@@ -27,7 +27,10 @@ export async function readJobs(): Promise<CronJobFile> {
 
 export async function writeJobs(data: CronJobFile): Promise<void> {
   const json = JSON.stringify(data, null, 2) + '\n'
-  await writeFile(JOBS_PATH, json, 'utf-8')
+  JSON.parse(json) // validate roundtrip
+  const tmpPath = JOBS_PATH + '.tmp'
+  await writeFile(tmpPath, json, 'utf-8')
+  await rename(tmpPath, JOBS_PATH)
 }
 
 export function runJob(id: string): Promise<{ success: boolean; message: string }> {
