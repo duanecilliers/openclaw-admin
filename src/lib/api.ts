@@ -103,6 +103,32 @@ export const cronApi = {
     fetchJSON<{ success: boolean; message: string }>(`/cron/${id}/run`, { method: 'POST' }),
 }
 
+// === Channel Types ===
+
+export interface ChannelOverview {
+  telegram?: { enabled: boolean; groupPolicy: string }
+  discord?: {
+    enabled: boolean
+    groupPolicy: string
+    accounts: { id: string; name: string }[]
+    guilds: {
+      id: string
+      channelCount: number
+      channels: { id: string; hasPrompt: boolean }[]
+    }[]
+  }
+}
+
+export const channelsApi = {
+  list: () => fetchJSON<ChannelOverview>('/channels'),
+}
+
+// === Config Types ===
+
+export const configApi = {
+  get: () => fetchJSON<{ config: any; updatedAt: string }>('/config'),
+}
+
 // === Workspace Types ===
 
 export const workspaceApi = {

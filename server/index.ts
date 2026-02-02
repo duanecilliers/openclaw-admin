@@ -6,6 +6,8 @@ import agents from './routes/agents.js'
 import workspace from './routes/workspace.js'
 import skills from './routes/skills.js'
 import cron from './routes/cron.js'
+import channels from './routes/channels.js'
+import configRoute from './routes/config.js'
 
 const app = new Hono()
 app.use('/*', cors())
@@ -19,6 +21,8 @@ app.route('/api/agents', agents)
 app.route('/api/workspace', workspace)
 app.route('/api/skills', skills)
 app.route('/api/cron', cron)
+app.route('/api/channels', channels)
+app.route('/api/config', configRoute)
 
 const port = 5181
 console.log(`Hono server running on http://localhost:${port}`)
