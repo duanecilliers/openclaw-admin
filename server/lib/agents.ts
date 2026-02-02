@@ -20,11 +20,13 @@ export interface AgentPrompt {
 interface ChannelBinding {
   channelId: string
   guildId: string
+  account: string | null
   systemPrompt: string
 }
 
 /**
  * Scan all guild channels and return those with a systemPrompt.
+ * Also captures the `account` field if present on channel config.
  */
 function getChannelBindings(config: any): ChannelBinding[] {
   const guilds = config.channels?.discord?.guilds ?? {}
@@ -33,7 +35,12 @@ function getChannelBindings(config: any): ChannelBinding[] {
     const channels = guild.channels ?? {}
     for (const [channelId, channel] of Object.entries<any>(channels)) {
       if (channelId !== '*' && channel.systemPrompt) {
-        bindings.push({ channelId, guildId, systemPrompt: channel.systemPrompt })
+        bindings.push({
+          channelId,
+          guildId,
+          account: channel.account ?? null,
+          systemPrompt: channel.systemPrompt,
+        })
       }
     }
   }
@@ -41,15 +48,28 @@ function getChannelBindings(config: any): ChannelBinding[] {
 }
 
 /**
- * Match an account to a channel binding by checking if the account name
- * appears in the system prompt (case-insensitive).
+ * Match an account to a channel binding using a multi-strategy approach:
+ * 1. Check channel's explicit `account` field (most reliable)
+ * 2. Check if account name appears in the system prompt text (fallback heuristic)
+ *
+ * Strategy 1 handles configs where channels declare their account.
+ * Strategy 2 handles legacy configs where the persona name is in the prompt.
  */
 function matchAccountToChannel(
+  accountId: string,
   accountName: string,
   bindings: ChannelBinding[]
 ): ChannelBinding | undefined {
+  // Strategy 1: explicit account field on channel config
+  const explicit = bindings.find(
+    (b) => b.account === accountId || b.account === accountName
+  )
+  if (explicit) return explicit
+
+  // Strategy 2: account name appears in system prompt text
+  const nameLower = accountName.toLowerCase()
   return bindings.find((b) =>
-    b.systemPrompt.toLowerCase().includes(accountName.toLowerCase())
+    b.systemPrompt.toLowerCase().includes(nameLower)
   )
 }
 
@@ -77,7 +97,7 @@ export async function getAgents(): Promise<Agent[]> {
   const skillCount = await countSkills(config)
 
   return Object.entries<any>(accounts).map(([id, account]) => {
-    const binding = matchAccountToChannel(account.name, bindings)
+    const binding = matchAccountToChannel(id, account.name, bindings)
     const description = binding
       ? binding.systemPrompt.slice(0, 100).replace(/\n/g, ' ').trim()
       : account.name
@@ -102,7 +122,7 @@ export async function getAgentPrompt(agentId: string): Promise<AgentPrompt | nul
   if (!account) return null
 
   const bindings = getChannelBindings(config)
-  const binding = matchAccountToChannel(account.name, bindings)
+  const binding = matchAccountToChannel(agentId, account.name, bindings)
   if (!binding) return null
 
   return {
@@ -123,7 +143,7 @@ export async function updateAgentPrompt(agentId: string, prompt: string): Promis
   if (!account) return null
 
   const bindings = getChannelBindings(config)
-  const binding = matchAccountToChannel(account.name, bindings)
+  const binding = matchAccountToChannel(agentId, account.name, bindings)
   if (!binding) return null
 
   // Update the system prompt in-place
