@@ -28,3 +28,30 @@ export const gatewayApi = {
   getStatus: () => fetchJSON<GatewayStatus>('/gateway/status'),
   restart: () => fetchJSON<GatewayRestartResult>('/gateway/restart', { method: 'POST' }),
 }
+
+// === Agent Types ===
+
+export interface Agent {
+  id: string
+  name: string
+  description: string
+  channelId: string | null
+  guildId: string | null
+  skillCount: number
+}
+
+export interface AgentPrompt {
+  prompt: string
+  channelId: string
+  guildId: string
+}
+
+export const agentsApi = {
+  list: () => fetchJSON<Agent[]>('/agents'),
+  getPrompt: (id: string) => fetchJSON<AgentPrompt>(`/agents/${id}/prompt`),
+  updatePrompt: (id: string, prompt: string) =>
+    fetchJSON<AgentPrompt>(`/agents/${id}/prompt`, {
+      method: 'PUT',
+      body: JSON.stringify({ prompt }),
+    }),
+}
