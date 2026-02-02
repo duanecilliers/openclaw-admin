@@ -1,5 +1,6 @@
 import type { Agent } from '@/lib/api'
 import AgentAvatar from './AgentAvatar'
+import SystemPromptEditor from './SystemPromptEditor'
 import AgentDetailTabs from './AgentDetailTabs'
 
 interface AgentDetailProps {
@@ -19,6 +20,9 @@ export default function AgentDetail({ agent }: AgentDetailProps) {
           </p>
         </div>
       </div>
+
+      {/* System Prompt Editor */}
+      <SystemPromptEditor agentId={agent.id} agentName={agent.name} />
 
       {/* Sub-tabs */}
       <AgentDetailTabs />
