@@ -2,3 +2,6 @@ node_modules
 dist
 .env
 *.local
+.planning/
+SPEC.md
+reference-ui.png
