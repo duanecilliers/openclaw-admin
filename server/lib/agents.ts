@@ -20,57 +20,42 @@ export interface AgentPrompt {
 interface ChannelBinding {
   channelId: string
   guildId: string
-  account: string | null
   systemPrompt: string
 }
 
 /**
- * Scan all guild channels and return those with a systemPrompt.
- * Also captures the `account` field if present on channel config.
+ * OpenClaw multi-account architecture:
+ * - Default account (Spark): channels.discord.guilds
+ * - Persona accounts: channels.discord.accounts[id].guilds
+ *
+ * Each persona account has its own guilds config with the channels it responds in.
+ * The system prompt lives on the channel config within that account's guilds.
  */
-function getChannelBindings(config: any): ChannelBinding[] {
-  const guilds = config.channels?.discord?.guilds ?? {}
-  const bindings: ChannelBinding[] = []
+
+/**
+ * Find the channel binding for an account.
+ * Looks in the account's own guilds config for channels with a systemPrompt.
+ * For default account, looks in the top-level discord guilds config.
+ */
+function getAccountBinding(config: any, accountId: string): ChannelBinding | null {
+  let guilds: any
+
+  if (accountId === 'default') {
+    guilds = config.channels?.discord?.guilds ?? {}
+  } else {
+    guilds = config.channels?.discord?.accounts?.[accountId]?.guilds ?? {}
+  }
+
   for (const [guildId, guild] of Object.entries<any>(guilds)) {
     const channels = guild.channels ?? {}
     for (const [channelId, channel] of Object.entries<any>(channels)) {
-      if (channelId !== '*' && channel.systemPrompt) {
-        bindings.push({
-          channelId,
-          guildId,
-          account: channel.account ?? null,
-          systemPrompt: channel.systemPrompt,
-        })
+      if (channel.systemPrompt) {
+        return { channelId, guildId, systemPrompt: channel.systemPrompt }
       }
     }
   }
-  return bindings
-}
 
-/**
- * Match an account to a channel binding using a multi-strategy approach:
- * 1. Check channel's explicit `account` field (most reliable)
- * 2. Check if account name appears in the system prompt text (fallback heuristic)
- *
- * Strategy 1 handles configs where channels declare their account.
- * Strategy 2 handles legacy configs where the persona name is in the prompt.
- */
-function matchAccountToChannel(
-  accountId: string,
-  accountName: string,
-  bindings: ChannelBinding[]
-): ChannelBinding | undefined {
-  // Strategy 1: explicit account field on channel config
-  const explicit = bindings.find(
-    (b) => b.account === accountId || b.account === accountName
-  )
-  if (explicit) return explicit
-
-  // Strategy 2: account name appears in system prompt text
-  const nameLower = accountName.toLowerCase()
-  return bindings.find((b) =>
-    b.systemPrompt.toLowerCase().includes(nameLower)
-  )
+  return null
 }
 
 /**
@@ -93,11 +78,10 @@ async function countSkills(config: any): Promise<number> {
 export async function getAgents(): Promise<Agent[]> {
   const config = await readConfig()
   const accounts = config.channels?.discord?.accounts ?? {}
-  const bindings = getChannelBindings(config)
   const skillCount = await countSkills(config)
 
   return Object.entries<any>(accounts).map(([id, account]) => {
-    const binding = matchAccountToChannel(id, account.name, bindings)
+    const binding = getAccountBinding(config, id)
     const description = binding
       ? binding.systemPrompt.slice(0, 100).replace(/\n/g, ' ').trim()
       : account.name
@@ -117,12 +101,14 @@ export async function getAgents(): Promise<Agent[]> {
  */
 export async function getAgentPrompt(agentId: string): Promise<AgentPrompt | null> {
   const config = await readConfig()
-  const accounts = config.channels?.discord?.accounts ?? {}
-  const account = accounts[agentId]
-  if (!account) return null
 
-  const bindings = getChannelBindings(config)
-  const binding = matchAccountToChannel(agentId, account.name, bindings)
+  // Verify account exists
+  if (agentId !== 'default') {
+    const accounts = config.channels?.discord?.accounts ?? {}
+    if (!accounts[agentId]) return null
+  }
+
+  const binding = getAccountBinding(config, agentId)
   if (!binding) return null
 
   return {
@@ -134,20 +120,27 @@ export async function getAgentPrompt(agentId: string): Promise<AgentPrompt | nul
 
 /**
  * Update the system prompt for a specific agent.
- * Finds the matching channel and writes the updated config to disk.
+ * Writes to the account's own guilds config.
  */
 export async function updateAgentPrompt(agentId: string, prompt: string): Promise<AgentPrompt | null> {
   const config = await readConfig()
-  const accounts = config.channels?.discord?.accounts ?? {}
-  const account = accounts[agentId]
-  if (!account) return null
 
-  const bindings = getChannelBindings(config)
-  const binding = matchAccountToChannel(agentId, account.name, bindings)
+  // Verify account exists
+  if (agentId !== 'default') {
+    const accounts = config.channels?.discord?.accounts ?? {}
+    if (!accounts[agentId]) return null
+  }
+
+  const binding = getAccountBinding(config, agentId)
   if (!binding) return null
 
-  // Update the system prompt in-place
-  config.channels.discord.guilds[binding.guildId].channels[binding.channelId].systemPrompt = prompt
+  // Write to the correct location based on account type
+  if (agentId === 'default') {
+    config.channels.discord.guilds[binding.guildId].channels[binding.channelId].systemPrompt = prompt
+  } else {
+    config.channels.discord.accounts[agentId].guilds[binding.guildId].channels[binding.channelId].systemPrompt = prompt
+  }
+
   await writeConfig(config)
 
   return {
