@@ -68,6 +68,21 @@ export interface WorkspaceFile {
   content: string
 }
 
+// === Skill Types ===
+
+export interface Skill {
+  name: string
+  description: string
+  group: string
+  hasConfig: boolean
+}
+
+export const skillsApi = {
+  list: () => fetchJSON<Skill[]>('/skills'),
+}
+
+// === Workspace Types ===
+
 export const workspaceApi = {
   listFiles: () => fetchJSON<WorkspaceFileInfo[]>('/workspace/files'),
   getFile: (name: string) => fetchJSON<WorkspaceFile>(`/workspace/file/${name}`),

@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import MarkdownEditor from '@/components/editor/MarkdownEditor'
 import { useWorkspaceFiles, useWorkspaceFile, useWorkspaceFileSave } from '@/hooks/useWorkspaceFile'
+import SkillsBrowser from '@/components/skills/SkillsBrowser'
 
 const FILE_TABS = [
   { value: 'soul', label: 'Soul', file: 'SOUL.md' },
@@ -231,12 +232,10 @@ export default function AgentDetailTabs() {
         </TabsContent>
       ))}
 
-      {/* Skills tab — future phase */}
+      {/* Skills tab */}
       <TabsContent value="skills">
-        <div className="mt-4 rounded-lg border border-border/50 bg-secondary/30 p-6 text-center">
-          <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-white">Skills</span> — coming in Phase 4
-          </p>
+        <div className="mt-4">
+          <SkillsBrowser />
         </div>
       </TabsContent>
     </Tabs>
