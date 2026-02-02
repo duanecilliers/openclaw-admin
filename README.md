@@ -2,6 +2,8 @@
 
 Web-based admin dashboard for managing an [OpenClaw](https://github.com/openclaw/openclaw) instance. Built for local, single-user use.
 
+![OpenClaw Admin Dashboard](screenshot.png)
+
 ## Features
 
 - **Agent Management** — View and edit Discord persona bots with live avatars from Discord API. Edit system prompts per agent with restart-on-save flow.
