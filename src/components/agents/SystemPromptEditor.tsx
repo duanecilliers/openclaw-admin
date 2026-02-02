@@ -15,25 +15,18 @@ export default function SystemPromptEditor({ agentId, agentName }: SystemPromptE
   const [showSuccess, setShowSuccess] = useState(false)
   const [needsRestart, setNeedsRestart] = useState(false)
   const [isRestarting, setIsRestarting] = useState(false)
-  const prevAgentId = useRef(agentId)
 
-  // Sync draft with fetched prompt
+  // Sync draft when agent changes or data loads.
+  // agentId in deps ensures re-sync even when returning to a cached agent.
   useEffect(() => {
     if (query.data?.prompt != null) {
       setDraft(query.data.prompt)
-    }
-  }, [query.data?.prompt])
-
-  // Reset state when agent changes
-  useEffect(() => {
-    if (prevAgentId.current !== agentId) {
-      prevAgentId.current = agentId
+    } else {
       setDraft('')
-      setShowSuccess(false)
-      setNeedsRestart(false)
-      mutation.reset()
     }
-  }, [agentId, mutation])
+    setShowSuccess(false)
+    mutation.reset()
+  }, [agentId, query.data?.prompt]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const isDirty = query.data?.prompt != null && draft !== query.data.prompt
   const isSaving = mutation.isPending
