@@ -55,3 +55,25 @@ export const agentsApi = {
       body: JSON.stringify({ prompt }),
     }),
 }
+
+// === Workspace Types ===
+
+export interface WorkspaceFileInfo {
+  name: string
+  exists: boolean
+}
+
+export interface WorkspaceFile {
+  name: string
+  content: string
+}
+
+export const workspaceApi = {
+  listFiles: () => fetchJSON<WorkspaceFileInfo[]>('/workspace/files'),
+  getFile: (name: string) => fetchJSON<WorkspaceFile>(`/workspace/file/${name}`),
+  saveFile: (name: string, content: string) =>
+    fetchJSON<{ name: string; saved: boolean }>(`/workspace/file/${name}`, {
+      method: 'PUT',
+      body: JSON.stringify({ content }),
+    }),
+}
