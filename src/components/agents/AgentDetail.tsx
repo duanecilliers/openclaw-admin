@@ -22,7 +22,7 @@ export default function AgentDetail({ agent }: AgentDetailProps) {
       </div>
 
       {/* System Prompt Editor */}
-      <SystemPromptEditor agentId={agent.id} agentName={agent.name} />
+      <SystemPromptEditor key={agent.id} agentId={agent.id} agentName={agent.name} />
 
       {/* Sub-tabs */}
       <AgentDetailTabs />
