@@ -35,6 +35,7 @@ export interface Agent {
   id: string
   name: string
   description: string
+  avatarUrl: string | null
   channelId: string | null
   guildId: string | null
   skillCount: number

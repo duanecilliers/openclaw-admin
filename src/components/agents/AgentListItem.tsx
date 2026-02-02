@@ -19,7 +19,7 @@ export default function AgentListItem({ agent, selected, onClick }: AgentListIte
           : 'border-l-2 border-transparent hover:bg-secondary/50'
       )}
     >
-      <AgentAvatar name={agent.name} size="sm" />
+      <AgentAvatar name={agent.name} avatarUrl={agent.avatarUrl} size="sm" />
       <div className="min-w-0 flex-1">
         <div className="font-medium text-white truncate">{agent.name}</div>
         <div className="text-sm text-muted-foreground">

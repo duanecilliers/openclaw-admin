@@ -12,7 +12,7 @@ export default function AgentDetail({ agent }: AgentDetailProps) {
     <div className="flex-1 overflow-y-auto rounded-xl bg-card p-6">
       {/* Agent Header */}
       <div className="flex items-start gap-4">
-        <AgentAvatar name={agent.name} size="lg" />
+        <AgentAvatar name={agent.name} avatarUrl={agent.avatarUrl} size="lg" />
         <div className="min-w-0 flex-1">
           <h2 className="text-xl font-semibold text-white">{agent.name}</h2>
           <p className="mt-1 text-sm text-muted-foreground line-clamp-2">

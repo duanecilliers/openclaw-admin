@@ -6,6 +6,7 @@ export interface Agent {
   id: string
   name: string
   description: string
+  avatarUrl: string | null
   channelId: string | null
   guildId: string | null
   skillCount: number
@@ -21,6 +22,70 @@ interface ChannelBinding {
   channelId: string
   guildId: string
   systemPrompt: string
+}
+
+// --- Discord avatar cache ---
+interface DiscordUser {
+  id: string
+  avatar: string | null
+}
+
+interface AvatarCache {
+  urls: Map<string, string | null>
+  fetchedAt: number
+}
+
+const AVATAR_CACHE_TTL_MS = 30 * 60 * 1000 // 30 minutes
+let avatarCache: AvatarCache = { urls: new Map(), fetchedAt: 0 }
+
+/**
+ * Fetch a bot's Discord avatar URL using its token.
+ * Returns CDN URL or null if no custom avatar is set.
+ */
+async function fetchBotAvatar(token: string): Promise<string | null> {
+  try {
+    const res = await fetch('https://discord.com/api/v10/users/@me', {
+      headers: { Authorization: `Bot ${token}` },
+    })
+    if (!res.ok) return null
+    const user: DiscordUser = await res.json()
+    if (!user.avatar) return null
+    const ext = user.avatar.startsWith('a_') ? 'gif' : 'png'
+    return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${ext}?size=128`
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Get avatar URLs for all accounts. Uses a time-based cache to avoid
+ * hammering Discord on every page load.
+ */
+async function getAvatarUrls(accounts: Record<string, any>): Promise<Map<string, string | null>> {
+  const now = Date.now()
+  if (now - avatarCache.fetchedAt < AVATAR_CACHE_TTL_MS && avatarCache.urls.size > 0) {
+    return avatarCache.urls
+  }
+
+  const urls = new Map<string, string | null>()
+  const entries = Object.entries<any>(accounts)
+
+  // Fetch all in parallel
+  const results = await Promise.allSettled(
+    entries.map(async ([id, account]) => {
+      const url = account.token ? await fetchBotAvatar(account.token) : null
+      return { id, url }
+    })
+  )
+
+  for (const result of results) {
+    if (result.status === 'fulfilled') {
+      urls.set(result.value.id, result.value.url)
+    }
+  }
+
+  avatarCache = { urls, fetchedAt: now }
+  return urls
 }
 
 /**
@@ -78,7 +143,10 @@ async function countSkills(config: any): Promise<number> {
 export async function getAgents(): Promise<Agent[]> {
   const config = await readConfig()
   const accounts = config.channels?.discord?.accounts ?? {}
-  const skillCount = await countSkills(config)
+  const [skillCount, avatarUrls] = await Promise.all([
+    countSkills(config),
+    getAvatarUrls(accounts),
+  ])
 
   return Object.entries<any>(accounts).map(([id, account]) => {
     const binding = getAccountBinding(config, id)
@@ -89,6 +157,7 @@ export async function getAgents(): Promise<Agent[]> {
       id,
       name: account.name,
       description: description + (binding && binding.systemPrompt.length > 100 ? '…' : ''),
+      avatarUrl: avatarUrls.get(id) ?? null,
       channelId: binding?.channelId ?? null,
       guildId: binding?.guildId ?? null,
       skillCount,
