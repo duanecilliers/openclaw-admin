@@ -9,7 +9,7 @@ interface AgentSidebarProps {
 
 export default function AgentSidebar({ agents, selectedId, onSelect }: AgentSidebarProps) {
   return (
-    <aside className="w-[280px] shrink-0 overflow-y-auto rounded-xl bg-card p-4">
+    <aside className="w-[280px] shrink-0 overflow-y-auto rounded-xl bg-card p-4 sticky top-0 h-full">
       <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         Agents
       </h3>

@@ -35,7 +35,7 @@ export default function AgentsPage() {
   const selectedAgent = agents.find((a) => a.id === selectedId)
 
   return (
-    <div className="flex gap-4 py-4" style={{ minHeight: 'calc(100vh - 160px)' }}>
+    <div className="flex gap-4 py-4" style={{ height: 'calc(100vh - 120px)' }}>
       <AgentSidebar
         agents={agents}
         selectedId={selectedId}
