@@ -39,18 +39,15 @@ export interface AgentChannel {
 export interface Agent {
   id: string
   name: string
-  description: string
+  emoji: string | null
+  model: string | null
+  workspacePath: string
   avatarUrl: string | null
   channels: AgentChannel[]
-  channelId: string | null
-  guildId: string | null
-  skillCount: number
 }
 
 export interface AgentPrompt {
   prompt: string
-  channelId: string
-  guildId: string
 }
 
 export const agentsApi = {
@@ -165,6 +162,18 @@ export const workspaceApi = {
   getFile: (name: string) => fetchJSON<WorkspaceFile>(`/workspace/file/${name}`),
   saveFile: (name: string, content: string) =>
     fetchJSON<{ name: string; saved: boolean }>(`/workspace/file/${name}`, {
+      method: 'PUT',
+      body: JSON.stringify({ content }),
+    }),
+}
+
+export const agentWorkspaceApi = {
+  list: (agentId: string) =>
+    fetchJSON<WorkspaceFileInfo[]>(`/agents/${agentId}/workspace/files`),
+  get: (agentId: string, name: string) =>
+    fetchJSON<WorkspaceFile>(`/agents/${agentId}/workspace/file/${name}`),
+  save: (agentId: string, name: string, content: string) =>
+    fetchJSON<{ name: string; saved: boolean }>(`/agents/${agentId}/workspace/file/${name}`, {
       method: 'PUT',
       body: JSON.stringify({ content }),
     }),
