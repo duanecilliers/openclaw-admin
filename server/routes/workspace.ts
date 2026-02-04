@@ -5,16 +5,26 @@ import { readConfig } from '../lib/config.js'
 
 const workspace = new Hono()
 
-const ALLOWED_FILES = ['SOUL.md', 'USER.md', 'AGENTS.md', 'MEMORY.md', 'TOOLS.md'] as const
+export const ALLOWED_FILES = ['SOUL.md', 'USER.md', 'AGENTS.md', 'MEMORY.md', 'TOOLS.md'] as const
 
-async function getWorkspacePath(): Promise<string> {
+async function getDefaultWorkspacePath(): Promise<string> {
   const config = await readConfig()
   const ws = config?.agents?.defaults?.workspace
   if (!ws) throw new Error('No workspace path configured in agents.defaults.workspace')
   return ws
 }
 
-async function fileExists(filePath: string): Promise<boolean> {
+export async function getAgentWorkspacePath(agentId: string): Promise<string> {
+  const config = await readConfig()
+  const agentsList: any[] = config.agents?.list ?? []
+  const agent = agentsList.find((a: any) => a.id === agentId)
+  if (!agent) throw new Error(`Agent not found: ${agentId}`)
+  const ws = agent.workspace ?? config.agents?.defaults?.workspace
+  if (!ws) throw new Error(`No workspace configured for agent: ${agentId}`)
+  return ws
+}
+
+export async function fileExists(filePath: string): Promise<boolean> {
   try {
     await access(filePath)
     return true
@@ -23,10 +33,12 @@ async function fileExists(filePath: string): Promise<boolean> {
   }
 }
 
+// --- Default workspace routes (backward compat) ---
+
 // GET /api/workspace/files — list workspace files with existence status
 workspace.get('/files', async (c) => {
   try {
-    const wsPath = await getWorkspacePath()
+    const wsPath = await getDefaultWorkspacePath()
     const results = await Promise.all(
       ALLOWED_FILES.map(async (name) => ({
         name,
@@ -46,7 +58,7 @@ workspace.get('/file/:name', async (c) => {
     if (!ALLOWED_FILES.includes(name as any)) {
       return c.json({ error: `File not allowed: ${name}` }, 400)
     }
-    const wsPath = await getWorkspacePath()
+    const wsPath = await getDefaultWorkspacePath()
     const filePath = join(wsPath, name)
 
     if (!(await fileExists(filePath))) {
@@ -73,7 +85,7 @@ workspace.put('/file/:name', async (c) => {
       return c.json({ error: 'Missing "content" in request body' }, 400)
     }
 
-    const wsPath = await getWorkspacePath()
+    const wsPath = await getDefaultWorkspacePath()
     const filePath = join(wsPath, name)
     await writeFile(filePath, body.content, 'utf-8')
     return c.json({ name, saved: true })
