@@ -1,23 +1,27 @@
 import { Hono } from 'hono'
 import { readdir, readFile } from 'fs/promises'
 import { join } from 'path'
+import { homedir } from 'os'
 import { readConfig } from '../lib/config.js'
+import { getAgentWorkspace } from '../lib/agents.js'
 
 const skills = new Hono()
+
+type SkillSource = 'bundled' | 'shared' | 'workspace'
 
 interface SkillInfo {
   name: string
   description: string
   group: string
   hasConfig: boolean
+  source: SkillSource
 }
 
 /**
  * Parse YAML-ish frontmatter between --- markers.
  * Handles simple `key: value` and multi-line `key: |` blocks.
- * No dependency on a YAML parser.
  */
-function parseFrontmatter(content: string): Record<string, string> {
+export function parseFrontmatter(content: string): Record<string, string> {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/)
   if (!match) return {}
 
@@ -27,28 +31,22 @@ function parseFrontmatter(content: string): Record<string, string> {
   let currentValue: string[] = []
 
   for (const line of lines) {
-    // New key: value pair (not indented)
     const kvMatch = line.match(/^(\w[\w-]*):\s*(.*)$/)
     if (kvMatch) {
-      // Flush previous key
       if (currentKey) {
         result[currentKey] = currentValue.join('\n').trim()
       }
       currentKey = kvMatch[1]
       const val = kvMatch[2]
-      // Multi-line indicator (| or >)
       if (val === '|' || val === '>') {
         currentValue = []
       } else {
-        // Strip surrounding quotes
         currentValue = [val.replace(/^["']|["']$/g, '')]
       }
     } else if (currentKey && (line.startsWith('  ') || line === '')) {
-      // Continuation of multi-line value
       currentValue.push(line.replace(/^ {2}/, ''))
     }
   }
-  // Flush last key
   if (currentKey) {
     result[currentKey] = currentValue.join('\n').trim()
   }
@@ -56,48 +54,99 @@ function parseFrontmatter(content: string): Record<string, string> {
   return result
 }
 
-// GET /api/skills — list all skills from workspace
+/**
+ * Scan a directory for skills (folders containing SKILL.md).
+ */
+async function scanSkillsDir(
+  dir: string,
+  source: SkillSource,
+  skillEntries: Record<string, unknown>
+): Promise<SkillInfo[]> {
+  let entries: string[]
+  try {
+    entries = await readdir(dir)
+  } catch {
+    return []
+  }
+
+  const results: SkillInfo[] = []
+
+  for (const entry of entries) {
+    const skillMdPath = join(dir, entry, 'SKILL.md')
+    let raw: string
+    try {
+      raw = await readFile(skillMdPath, 'utf-8')
+    } catch {
+      continue
+    }
+
+    const fm = parseFrontmatter(raw)
+    const name = fm.name || entry
+    const description = fm.description || ''
+    const group = fm.group || fm.category || 'general'
+    const hasConfig = entry in skillEntries || name in skillEntries
+
+    results.push({ name, description, group, hasConfig, source })
+  }
+
+  return results
+}
+
+/**
+ * Resolve the three skill directories.
+ */
+function getSkillDirs(config: any, agentWorkspace: string | null) {
+  const home = homedir()
+
+  // Bundled skills — shipped with OpenClaw install
+  // Check common locations
+  const bundledDir = join(home, 'openclaw', 'skills')
+
+  // Shared/managed skills
+  const sharedDir = join(home, '.openclaw', 'skills')
+
+  // Agent workspace skills
+  const workspaceDir = agentWorkspace ? join(agentWorkspace, 'skills') : null
+
+  return { bundledDir, sharedDir, workspaceDir }
+}
+
+// GET /api/skills — list all skills, optionally scoped to an agent
 skills.get('/', async (c) => {
   try {
     const config = await readConfig()
-    const workspace = config?.agents?.defaults?.workspace
-    if (!workspace) {
-      return c.json({ error: 'No workspace configured (agents.defaults.workspace)' }, 500)
-    }
-
-    const skillsDir = join(workspace, 'skills')
-    let entries: string[]
-    try {
-      entries = await readdir(skillsDir)
-    } catch {
-      // skills/ directory doesn't exist — return empty
-      return c.json([])
-    }
-
-    // Get skill config entries for hasConfig detection
+    const agentId = c.req.query('agentId')
     const skillEntries: Record<string, unknown> = config?.skills?.entries ?? {}
 
-    const results: SkillInfo[] = []
-
-    for (const entry of entries) {
-      const skillMdPath = join(skillsDir, entry, 'SKILL.md')
-      let raw: string
-      try {
-        raw = await readFile(skillMdPath, 'utf-8')
-      } catch {
-        // No SKILL.md — skip
-        continue
-      }
-
-      const fm = parseFrontmatter(raw)
-      const name = fm.name || entry
-      const description = fm.description || ''
-      // Use "group" field from frontmatter; fall back to "category"; default "general"
-      const group = fm.group || fm.category || 'general'
-      const hasConfig = entry in skillEntries || name in skillEntries
-
-      results.push({ name, description, group, hasConfig })
+    // Resolve agent workspace if agentId provided
+    let agentWorkspace: string | null = null
+    if (agentId) {
+      agentWorkspace = getAgentWorkspace(config, agentId)
     }
+
+    const { bundledDir, sharedDir, workspaceDir } = getSkillDirs(config, agentWorkspace)
+
+    // Scan all three layers
+    const [bundledSkills, sharedSkills, workspaceSkills] = await Promise.all([
+      scanSkillsDir(bundledDir, 'bundled', skillEntries),
+      scanSkillsDir(sharedDir, 'shared', skillEntries),
+      workspaceDir ? scanSkillsDir(workspaceDir, 'workspace', skillEntries) : Promise.resolve([]),
+    ])
+
+    // Merge with precedence: workspace > shared > bundled
+    const merged = new Map<string, SkillInfo>()
+
+    for (const skill of bundledSkills) {
+      merged.set(skill.name, skill)
+    }
+    for (const skill of sharedSkills) {
+      merged.set(skill.name, skill)
+    }
+    for (const skill of workspaceSkills) {
+      merged.set(skill.name, skill)
+    }
+
+    const results = [...merged.values()]
 
     // Sort by group, then by name
     results.sort((a, b) => {

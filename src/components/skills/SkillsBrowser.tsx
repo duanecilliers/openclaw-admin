@@ -1,13 +1,18 @@
 import { useState } from 'react'
-import { Search, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { useSkills } from '@/hooks/useSkills'
+import { useSkills, useSkillInstall, useSkillRemove } from '@/hooks/useSkills'
 import SkillsGrid from './SkillsGrid'
 
-export default function SkillsBrowser() {
+interface SkillsBrowserProps {
+  agentId?: string
+}
+
+export default function SkillsBrowser({ agentId }: SkillsBrowserProps) {
   const [searchQuery, setSearchQuery] = useState('')
-  const { data: skills, isLoading, isError, error } = useSkills()
+  const { data: skills, isLoading, isError, error } = useSkills(agentId)
+  const installMutation = agentId ? useSkillInstall(agentId) : null
+  const removeMutation = agentId ? useSkillRemove(agentId) : null
 
   // Loading skeleton
   if (isLoading) {
@@ -15,8 +20,6 @@ export default function SkillsBrowser() {
       <div className="space-y-4">
         <div className="flex items-center gap-3">
           <div className="h-9 flex-1 animate-pulse rounded-md bg-secondary/50" />
-          <div className="h-9 w-24 animate-pulse rounded-md bg-secondary/50" />
-          <div className="h-9 w-24 animate-pulse rounded-md bg-secondary/50" />
         </div>
         {[1, 2, 3].map((i) => (
           <div key={i} className="space-y-2">
@@ -43,10 +46,11 @@ export default function SkillsBrowser() {
   }
 
   const skillList = skills ?? []
+  const workspaceCount = skillList.filter((s) => s.source === 'workspace').length
 
   return (
     <div className="space-y-4">
-      {/* Toolbar: search + action buttons */}
+      {/* Toolbar */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -57,29 +61,16 @@ export default function SkillsBrowser() {
             className="pl-8"
           />
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled
-          className="gap-1.5 border-green-500/30 text-green-400 opacity-50"
-        >
-          <ToggleRight className="size-3.5" />
-          Enable All
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled
-          className="gap-1.5 border-red-500/30 text-red-400 opacity-50"
-        >
-          <ToggleLeft className="size-3.5" />
-          Disable All
-        </Button>
       </div>
 
       {/* Summary */}
       <p className="text-xs text-muted-foreground">
-        {skillList.length} skill{skillList.length !== 1 ? 's' : ''} installed
+        {skillList.length} skill{skillList.length !== 1 ? 's' : ''} available
+        {agentId && (
+          <span>
+            {' '}· <span className="text-green-400">{workspaceCount} installed</span> to agent
+          </span>
+        )}
         {searchQuery && (
           <span>
             {' '}· filtering by "<span className="text-white">{searchQuery}</span>"
@@ -88,7 +79,15 @@ export default function SkillsBrowser() {
       </p>
 
       {/* Grid */}
-      <SkillsGrid skills={skillList} searchQuery={searchQuery} />
+      <SkillsGrid
+        skills={skillList}
+        searchQuery={searchQuery}
+        agentId={agentId}
+        onInstall={installMutation ? (name) => installMutation.mutate(name) : undefined}
+        onRemove={removeMutation ? (name) => removeMutation.mutate(name) : undefined}
+        isInstalling={installMutation?.isPending}
+        isRemoving={removeMutation?.isPending}
+      />
     </div>
   )
 }

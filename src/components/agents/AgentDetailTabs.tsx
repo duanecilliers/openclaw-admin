@@ -245,7 +245,7 @@ export default function AgentDetailTabs({ agentId }: AgentDetailTabsProps) {
       {/* Skills tab */}
       <TabsContent value="skills">
         <div className="mt-4">
-          <SkillsBrowser />
+          <SkillsBrowser agentId={agentId} />
         </div>
       </TabsContent>
     </Tabs>

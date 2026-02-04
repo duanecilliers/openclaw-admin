@@ -79,10 +79,16 @@ export interface Skill {
   description: string
   group: string
   hasConfig: boolean
+  source: 'bundled' | 'shared' | 'workspace'
 }
 
 export const skillsApi = {
-  list: () => fetchJSON<Skill[]>('/skills'),
+  list: (agentId?: string) =>
+    fetchJSON<Skill[]>(`/skills${agentId ? `?agentId=${agentId}` : ''}`),
+  install: (agentId: string, skillName: string) =>
+    fetchJSON<Skill>(`/agents/${agentId}/skills/${skillName}/install`, { method: 'POST' }),
+  remove: (agentId: string, skillName: string) =>
+    fetchJSON<{ success: boolean }>(`/agents/${agentId}/skills/${skillName}`, { method: 'DELETE' }),
 }
 
 // === Workspace Types ===

@@ -21,7 +21,7 @@ export interface AgentPrompt {
   prompt: string
 }
 
-// --- Discord avatar cache ---
+// --- Discord caches ---
 interface DiscordUser {
   id: string
   avatar: string | null
@@ -32,8 +32,14 @@ interface AvatarCache {
   fetchedAt: number
 }
 
-const AVATAR_CACHE_TTL_MS = 30 * 60 * 1000 // 30 minutes
+interface ChannelNameCache {
+  names: Map<string, string>
+  fetchedAt: number
+}
+
+const CACHE_TTL_MS = 30 * 60 * 1000 // 30 minutes
 let avatarCache: AvatarCache = { urls: new Map(), fetchedAt: 0 }
+let channelNameCache: ChannelNameCache = { names: new Map(), fetchedAt: 0 }
 
 /**
  * Fetch a bot's Discord avatar URL using its token.
@@ -54,27 +60,42 @@ async function fetchBotAvatar(token: string): Promise<string | null> {
 }
 
 /**
- * Get avatar URLs for all agents that have Discord bindings.
+ * Fetch a Discord channel's name using a bot token.
+ */
+async function fetchChannelName(token: string, channelId: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://discord.com/api/v10/channels/${channelId}`, {
+      headers: { Authorization: `Bot ${token}` },
+    })
+    if (!res.ok) return null
+    const channel = await res.json() as { name?: string }
+    return channel.name ?? null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Get avatar URLs for all agents by matching discordAccounts[agentId].
  * Keyed by agentId.
  */
 async function getAvatarUrls(
-  bindings: Array<{ agentId: string; match: { channel: string; accountId: string } }>,
+  agents: any[],
   discordAccounts: Record<string, any>
 ): Promise<Map<string, string | null>> {
   const now = Date.now()
-  if (now - avatarCache.fetchedAt < AVATAR_CACHE_TTL_MS && avatarCache.urls.size > 0) {
+  if (now - avatarCache.fetchedAt < CACHE_TTL_MS && avatarCache.urls.size > 0) {
     return avatarCache.urls
   }
 
   const urls = new Map<string, string | null>()
 
-  const fetches = bindings
-    .filter((b) => b.match.channel === 'discord')
-    .map(async (binding) => {
-      const account = discordAccounts[binding.match.accountId]
-      const token = account?.token
-      const url = token ? await fetchBotAvatar(token) : null
-      return { agentId: binding.agentId, url }
+  const fetches = agents
+    .filter((a) => discordAccounts[a.id]?.token)
+    .map(async (agent) => {
+      const token = discordAccounts[agent.id].token
+      const url = await fetchBotAvatar(token)
+      return { agentId: agent.id, url }
     })
 
   const results = await Promise.allSettled(fetches)
@@ -89,31 +110,80 @@ async function getAvatarUrls(
 }
 
 /**
+ * Resolve channel names for all agent Discord channels.
+ * Uses a single cache keyed by channelId.
+ */
+async function getChannelNames(
+  agents: any[],
+  discordAccounts: Record<string, any>
+): Promise<Map<string, string>> {
+  const now = Date.now()
+  if (now - channelNameCache.fetchedAt < CACHE_TTL_MS && channelNameCache.names.size > 0) {
+    return channelNameCache.names
+  }
+
+  const names = new Map<string, string>()
+
+  // Collect all unique channelId → token pairs
+  const channelTokens = new Map<string, string>()
+  for (const agent of agents) {
+    const account = discordAccounts[agent.id]
+    if (!account?.token) continue
+    const guilds = account.guilds ?? {}
+    for (const guild of Object.values<any>(guilds)) {
+      const channels = guild.channels ?? {}
+      for (const channelId of Object.keys(channels)) {
+        if (channelId !== '*') {
+          channelTokens.set(channelId, account.token)
+        }
+      }
+    }
+  }
+
+  const fetches = [...channelTokens.entries()].map(async ([channelId, token]) => {
+    const name = await fetchChannelName(token, channelId)
+    return { channelId, name }
+  })
+
+  const results = await Promise.allSettled(fetches)
+  for (const result of results) {
+    if (result.status === 'fulfilled' && result.value.name) {
+      names.set(result.value.channelId, result.value.name)
+    }
+  }
+
+  channelNameCache = { names, fetchedAt: now }
+  return names
+}
+
+/**
  * Get all agents from config.agents.list[].
+ * Resolves Discord channels and avatars by matching discordAccounts[agentId] directly.
  */
 export async function getAgents(): Promise<Agent[]> {
   const config = await readConfig()
   const agentsList: any[] = config.agents?.list ?? []
-  const bindings: any[] = config.agents?.bindings ?? []
   const discordAccounts: Record<string, any> = config.channels?.discord?.accounts ?? {}
 
-  const avatarUrls = await getAvatarUrls(bindings, discordAccounts)
+  const [avatarUrls, channelNames] = await Promise.all([
+    getAvatarUrls(agentsList, discordAccounts),
+    getChannelNames(agentsList, discordAccounts),
+  ])
 
   return agentsList.map((agent) => {
-    // Find Discord binding for this agent
-    const binding = bindings.find(
-      (b: any) => b.agentId === agent.id && b.match?.channel === 'discord'
-    )
+    // Match Discord account directly by agent ID
+    const account = discordAccounts[agent.id]
 
-    // Resolve channels from Discord account guilds if available
+    // Resolve channels from Discord account guilds
     const channels: AgentChannel[] = []
-    if (binding) {
-      const account = discordAccounts[binding.match.accountId]
-      const guilds = account?.guilds ?? {}
-      for (const [, guild] of Object.entries<any>(guilds)) {
+    if (account) {
+      const guilds = account.guilds ?? {}
+      for (const guild of Object.values<any>(guilds)) {
         const guildChannels = guild.channels ?? {}
-        for (const [channelId] of Object.entries(guildChannels)) {
-          channels.push({ id: channelId, name: channelId })
+        for (const channelId of Object.keys(guildChannels)) {
+          if (channelId === '*') continue // skip wildcard
+          const name = channelNames.get(channelId) ?? channelId
+          channels.push({ id: channelId, name })
         }
       }
     }
@@ -135,7 +205,7 @@ export async function getAgents(): Promise<Agent[]> {
 /**
  * Find an agent's workspace path by id.
  */
-function getAgentWorkspace(config: any, agentId: string): string | null {
+export function getAgentWorkspace(config: any, agentId: string): string | null {
   const agentsList: any[] = config.agents?.list ?? []
   const agent = agentsList.find((a: any) => a.id === agentId)
   if (!agent) return null

@@ -15,9 +15,22 @@ const GROUP_COLORS: string[] = [
 interface SkillsGridProps {
   skills: Skill[]
   searchQuery: string
+  agentId?: string
+  onInstall?: (skillName: string) => void
+  onRemove?: (skillName: string) => void
+  isInstalling?: boolean
+  isRemoving?: boolean
 }
 
-export default function SkillsGrid({ skills, searchQuery }: SkillsGridProps) {
+export default function SkillsGrid({
+  skills,
+  searchQuery,
+  agentId,
+  onInstall,
+  onRemove,
+  isInstalling,
+  isRemoving,
+}: SkillsGridProps) {
   // Filter skills by search query
   const query = searchQuery.toLowerCase()
   const filtered = query
@@ -54,6 +67,7 @@ export default function SkillsGrid({ skills, searchQuery }: SkillsGridProps) {
       {sortedGroups.map((group, i) => {
         const groupSkills = groups.get(group)!
         const colorClass = GROUP_COLORS[i % GROUP_COLORS.length]
+        const installedCount = groupSkills.filter((s) => s.source === 'workspace').length
 
         return (
           <div key={group}>
@@ -66,14 +80,24 @@ export default function SkillsGrid({ skills, searchQuery }: SkillsGridProps) {
                 {group}
               </Badge>
               <span className="text-xs text-muted-foreground">
-                0/{groupSkills.length} enabled
+                {agentId
+                  ? `${installedCount}/${groupSkills.length} installed`
+                  : `${groupSkills.length} skill${groupSkills.length !== 1 ? 's' : ''}`}
               </span>
             </div>
 
             {/* 2-column grid */}
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
               {groupSkills.map((skill) => (
-                <SkillCard key={skill.name} skill={skill} />
+                <SkillCard
+                  key={skill.name}
+                  skill={skill}
+                  agentId={agentId}
+                  onInstall={onInstall}
+                  onRemove={onRemove}
+                  isInstalling={isInstalling}
+                  isRemoving={isRemoving}
+                />
               ))}
             </div>
           </div>
