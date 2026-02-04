@@ -1,7 +1,6 @@
 import type { Agent } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import AgentAvatar from './AgentAvatar'
-import SystemPromptEditor from './SystemPromptEditor'
 import AgentDetailTabs from './AgentDetailTabs'
 
 interface AgentDetailProps {
@@ -44,9 +43,6 @@ export default function AgentDetail({ agent }: AgentDetailProps) {
           )}
         </div>
       </div>
-
-      {/* SOUL.md Editor */}
-      <SystemPromptEditor key={agent.id} agentId={agent.id} agentName={agent.name} />
 
       {/* Sub-tabs */}
       <AgentDetailTabs agentId={agent.id} />
