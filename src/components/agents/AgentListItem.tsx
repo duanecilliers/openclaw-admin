@@ -1,6 +1,7 @@
 import { Hash } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Agent } from '@/lib/api'
+import { Badge } from '@/components/ui/badge'
 import AgentAvatar from './AgentAvatar'
 
 interface AgentListItemProps {
@@ -9,10 +10,21 @@ interface AgentListItemProps {
   onClick: () => void
 }
 
+function getModelLabel(model: string | null): string | null {
+  if (!model) return null
+  if (model.includes('opus')) return 'opus'
+  if (model.includes('sonnet')) return 'sonnet'
+  if (model.includes('haiku')) return 'haiku'
+  // Fall back to last segment after /
+  const parts = model.split('/')
+  return parts[parts.length - 1] ?? null
+}
+
 export default function AgentListItem({ agent, selected, onClick }: AgentListItemProps) {
   const channelLabel = agent.channels.length > 0
     ? agent.channels.map((c) => c.name).join(', ')
     : null
+  const modelLabel = getModelLabel(agent.model)
 
   return (
     <button
@@ -26,9 +38,18 @@ export default function AgentListItem({ agent, selected, onClick }: AgentListIte
     >
       <AgentAvatar name={agent.name} avatarUrl={agent.avatarUrl} size="sm" />
       <div className="min-w-0 flex-1">
-        <div className="font-medium text-white truncate">{agent.name}</div>
+        <div className="font-medium text-white truncate">
+          {agent.emoji && <span className="mr-1.5">{agent.emoji}</span>}
+          {agent.name}
+        </div>
         <div className="text-xs text-muted-foreground">
-          {agent.skillCount} skill{agent.skillCount !== 1 ? 's' : ''}
+          {modelLabel ? (
+            <Badge variant="secondary" className="px-1.5 py-0 text-[10px] leading-4">
+              {modelLabel}
+            </Badge>
+          ) : (
+            <span className="text-muted-foreground/50">default</span>
+          )}
         </div>
         {channelLabel && (
           <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground/70 truncate">

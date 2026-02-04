@@ -24,9 +24,14 @@ function fileForTab(tab: string): string | null {
 
 // --- Tab content for a workspace file ---
 
-function WorkspaceFilePanel({ fileName }: { fileName: string }) {
-  const query = useWorkspaceFile(fileName)
-  const saveMutation = useWorkspaceFileSave()
+interface WorkspaceFilePanelProps {
+  fileName: string
+  agentId: string
+}
+
+function WorkspaceFilePanel({ fileName, agentId }: WorkspaceFilePanelProps) {
+  const query = useWorkspaceFile(fileName, agentId)
+  const saveMutation = useWorkspaceFileSave(agentId)
   const [draft, setDraft] = useState('')
   const [showSuccess, setShowSuccess] = useState(false)
   const prevFileName = useRef(fileName)
@@ -184,9 +189,13 @@ function WorkspaceFilePanel({ fileName }: { fileName: string }) {
 
 // --- Main component ---
 
-export default function AgentDetailTabs() {
+interface AgentDetailTabsProps {
+  agentId: string
+}
+
+export default function AgentDetailTabs({ agentId }: AgentDetailTabsProps) {
   const [activeTab, setActiveTab] = useState<string>('soul')
-  const filesQuery = useWorkspaceFiles()
+  const filesQuery = useWorkspaceFiles(agentId)
 
   const fileExistence = new Map(
     filesQuery.data?.map((f) => [f.name, f.exists]) ?? []
@@ -196,16 +205,6 @@ export default function AgentDetailTabs() {
 
   return (
     <div className="mt-6">
-      {/* Shared workspace label */}
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground/60">
-          Shared Workspace
-        </span>
-        <span className="text-[10px] text-muted-foreground/40">
-          — edits apply to all agents
-        </span>
-      </div>
-
     <Tabs value={activeTab} onValueChange={setActiveTab}>
       <TabsList className="gap-1 bg-secondary/50">
         {FILE_TABS.map(({ value, label, file }) => {
@@ -239,7 +238,7 @@ export default function AgentDetailTabs() {
       {/* File tab contents */}
       {FILE_TABS.map(({ value, file }) => (
         <TabsContent key={value} value={value}>
-          {activeFile === file && <WorkspaceFilePanel fileName={file} />}
+          {activeFile === file && <WorkspaceFilePanel fileName={file} agentId={agentId} />}
         </TabsContent>
       ))}
 
