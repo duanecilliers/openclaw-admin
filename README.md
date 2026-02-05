@@ -1,18 +1,16 @@
 # OpenClaw Admin
 
-> **⚠️ Discord-specific:** This dashboard is built for OpenClaw instances running **Discord bot agents** (multi-account persona setup). It reads Discord bot tokens, fetches avatars from the Discord API, and visualizes per-account channel routing. If you're using OpenClaw with other channels (Telegram, Signal, etc.) this won't be directly useful — though the workspace editor, cron, and config viewer are channel-agnostic.
-
-Web-based admin dashboard for managing an [OpenClaw](https://github.com/openclaw/openclaw) instance. Built for local, single-user use.
+Web-based admin dashboard for managing an [OpenClaw](https://github.com/openclaw/openclaw) instance with multiple agents. Built for local, single-user use.
 
 ![OpenClaw Admin Dashboard](screenshot.png)
 
 ## Features
 
-- **Agent Management** — View and edit Discord persona bots with live avatars from Discord API. Edit system prompts per agent with restart-on-save flow.
-- **Workspace Files** — Edit shared workspace files (SOUL.md, USER.md, AGENTS.md, MEMORY.md, TOOLS.md) with CodeMirror 6 and syntax highlighting.
-- **Skills Browser** — Read-only inventory of installed skills, grouped by category.
+- **Agent Management** — View all agents defined in `agents.list[]`. Edit per-agent workspace files (SOUL.md, USER.md, AGENTS.md, MEMORY.md, TOOLS.md) with CodeMirror 6.
+- **Per-Agent Skills** — Browse bundled, shared, and workspace skills. Install skills to specific agents or remove them. Skills in an agent's workspace override bundled/shared skills.
+- **Discord Integration** — Fetches bot avatars and channel names from Discord API. Shows which channels each agent has access to.
 - **Cron Jobs** — View, create, toggle, trigger, and delete scheduled jobs. Supports cron expressions, intervals, system events, and agent turns.
-- **Channel Routing** — Visualize per-account bot → channel routing for Discord's multi-account architecture.
+- **Channel Overview** — Visualize Discord account → channel routing.
 - **Config Viewer** — Read-only JSON view of the full OpenClaw config (sensitive fields masked).
 - **Gateway Controls** — Live status, restart button, connection monitoring.
 
@@ -20,10 +18,10 @@ Web-based admin dashboard for managing an [OpenClaw](https://github.com/openclaw
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Start dev servers (frontend :5180 + API :5181)
-npm run dev
+pnpm dev
 ```
 
 The frontend proxies `/api` requests to the backend. Both servers hot-reload on file changes.
@@ -34,74 +32,80 @@ Open [http://localhost:5180](http://localhost:5180) to access the dashboard.
 
 - Node.js 20+
 - [OpenClaw](https://github.com/openclaw/openclaw) installed and configured at `~/.openclaw/openclaw.json`
-- One or more Discord bot accounts configured in OpenClaw (see below)
+- Agents defined in `agents.list[]` with workspaces
 
-## Discord Bot Setup
+## OpenClaw Multi-Agent Architecture
 
-OpenClaw Admin reads your bot configuration from `~/.openclaw/openclaw.json`. The dashboard works best with OpenClaw's **multi-account Discord architecture**, where each persona bot has its own account, channels, and system prompt.
+OpenClaw Admin is built for the **native multi-agent architecture** where agents are first-class entities with isolated workspaces.
 
-### Creating Discord Bot Accounts
+### Config Structure
 
-For each persona you want, create a bot application at the [Discord Developer Portal](https://discord.com/developers/applications):
+Agents are defined in `agents.list[]`. Each agent has:
+- `id` — unique identifier (used to match Discord accounts)
+- `workspace` — path to the agent's workspace directory
+- `model` — optional model override
+- `identity` — name and emoji for display
 
-1. **New Application** → give it a name (e.g. "Coach", "Analyst", "Writer")
-2. Go to **Bot** → click **Reset Token** → copy the token
-3. Enable **Message Content Intent** under Privileged Gateway Intents
-4. Go to **OAuth2** → **URL Generator** → select `bot` scope → select permissions: `Send Messages`, `Read Message History`, `Add Reactions`
-5. Use the generated URL to invite the bot to your Discord server
-6. Repeat for each persona
+```jsonc
+{
+  "agents": {
+    "list": [
+      {
+        "id": "spark",
+        "default": true,
+        "workspace": "/Users/you/clawd",
+        "identity": { "name": "Spark", "emoji": "🦊" }
+      },
+      {
+        "id": "gilfoyle",
+        "workspace": "/Users/you/.openclaw/agents/gilfoyle/workspace",
+        "model": "anthropic/claude-opus-4-5",
+        "identity": { "name": "Gilfoyle", "emoji": "💻" }
+      }
+    ],
+    "defaults": {
+      "workspace": "/Users/you/clawd"
+    }
+  }
+}
+```
 
-### OpenClaw Config Structure
+### Per-Agent Workspaces
 
-Each bot account goes in `channels.discord.accounts`. The **default** account is your primary bot. Additional accounts are persona bots, each with their own `guilds` config that defines which channels they respond in:
+Each agent's persona and configuration lives in their workspace:
+
+```
+~/.openclaw/agents/gilfoyle/workspace/
+├── SOUL.md          # Agent persona (the "system prompt")
+├── USER.md          # Info about the user
+├── AGENTS.md        # Multi-agent context
+├── MEMORY.md        # Persistent memory
+├── TOOLS.md         # Tool usage notes
+└── skills/          # Per-agent skills (optional)
+    └── coding-agent/
+        └── SKILL.md
+```
+
+The admin dashboard edits these files directly. Changes take effect on the next agent turn.
+
+### Discord Integration
+
+Discord bot accounts are keyed by agent ID in `channels.discord.accounts`. The dashboard matches `discordAccounts[agent.id]` to resolve:
+- Bot avatar (fetched from Discord API)
+- Channel access (from guild config)
 
 ```jsonc
 {
   "channels": {
     "discord": {
-      "enabled": true,
       "accounts": {
-        "default": {
-          "name": "Assistant",
-          "token": "your-primary-bot-token"
-        },
-        "coach": {
-          "name": "Coach",
-          "token": "coach-bot-token",
+        "gilfoyle": {
+          "token": "bot-token-here",
           "guilds": {
-            "YOUR_GUILD_ID": {
+            "GUILD_ID": {
               "channels": {
-                "CHANNEL_ID": {
-                  "allow": true,
-                  "systemPrompt": "You are a fitness coach. Motivate, track workouts, and push for consistency."
-                }
+                "CHANNEL_ID": { "allow": true }
               }
-            }
-          }
-        },
-        "writer": {
-          "name": "Writer",
-          "token": "writer-bot-token",
-          "guilds": {
-            "YOUR_GUILD_ID": {
-              "channels": {
-                "CHANNEL_ID": {
-                  "allow": true,
-                  "systemPrompt": "You are a creative writing assistant. Help with drafts, editing, and storytelling."
-                }
-              }
-            }
-          }
-        }
-      },
-      "guilds": {
-        "YOUR_GUILD_ID": {
-          "requireMention": false,
-          "users": ["YOUR_DISCORD_USER_ID"],
-          "channels": {
-            "*": {
-              "allow": true,
-              "systemPrompt": "You are a helpful assistant."
             }
           }
         }
@@ -111,33 +115,15 @@ Each bot account goes in `channels.discord.accounts`. The **default** account is
 }
 ```
 
-> **Key points:**
-> - The **default** account uses the top-level `guilds` config (with `*` wildcard for all channels)
-> - Each **persona** account has its own `guilds` config scoped to specific channels
-> - System prompts are per-channel — this is where you define each bot's personality
-> - The admin dashboard lets you edit these prompts visually and shows the full routing table
+### Skill Isolation
 
-### Finding Your IDs
+Skills load from three locations with precedence:
 
-- **Guild ID**: Right-click your server name → Copy Server ID (enable Developer Mode in Discord settings)
-- **Channel ID**: Right-click a channel → Copy Channel ID
-- **User ID**: Right-click your username → Copy User ID
+1. **Workspace** (`<agent>/workspace/skills/`) — per-agent, highest priority
+2. **Shared** (`~/.openclaw/skills/`) — available to all agents
+3. **Bundled** (`~/openclaw/skills/`) — shipped with OpenClaw, lowest priority
 
-### Channel Permissions
-
-For clean separation, configure Discord so each persona bot only sees its assigned channel, and your primary bot doesn't see persona channels:
-
-1. **Create a role** called `Persona Bots` (no special permissions needed — it's just a grouping role)
-2. **Assign the role** to all persona bots (not the primary bot)
-3. **For each persona channel** (e.g. `#fitness`, `#coding`):
-   - Edit channel permissions
-   - Add the `Persona Bots` role → **Deny** `View Channel`
-   - Add the specific bot (e.g. Coach) → **Allow** `View Channel`, `Send Messages`, `Read Message History`, `Add Reactions`
-4. **For general channels** the primary bot uses:
-   - No changes needed — the primary bot isn't in the `Persona Bots` role, so it sees everything as normal
-   - Optionally deny the `Persona Bots` role on general channels to keep them fully isolated
-
-> **Result:** Each persona bot sees only its own channel. The primary bot sees everything except persona-specific channels. No cross-talk.
+The admin panel shows all three layers. Installing a skill copies it to the agent's workspace. Removing deletes it from the workspace (bundled/shared skills can't be removed, only overridden).
 
 ## Tech Stack
 
@@ -154,17 +140,17 @@ For clean separation, configure Discord so each persona bot only sees its assign
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start both frontend and API servers |
-| `npm run dev:fe` | Frontend only (port 5180) |
-| `npm run dev:api` | API only (port 5181) |
-| `npm run build` | Production build |
-| `npm run preview` | Preview production build |
+| `pnpm dev` | Start both frontend and API servers |
+| `pnpm dev:fe` | Frontend only (port 5180) |
+| `pnpm dev:api` | API only (port 5181) |
+| `pnpm build` | Production build |
+| `pnpm preview` | Preview production build |
 
 ## Architecture
 
 ```
 src/                    # React frontend
-├── components/         # UI components (agents, channels, cron, editor, etc.)
+├── components/         # UI components (agents, skills, channels, cron, editor)
 ├── hooks/              # TanStack Query hooks
 ├── lib/                # API client, utilities
 ├── pages/              # Tab page components
@@ -172,16 +158,18 @@ src/                    # React frontend
 
 server/                 # Hono.js backend
 ├── routes/             # API route handlers
-├── lib/                # Config, cron, agents, gateway helpers
+├── lib/                # Config, agents, gateway helpers
 └── index.ts
 ```
 
 ### Key Design Decisions
 
-- **Agents = Discord bot accounts** — Maps to `channels.discord.accounts` in the OpenClaw config. Each persona bot has its own guilds config defining which channels it responds in.
-- **Atomic config writes** — All config mutations write to a temp file, backup the current config, then atomic rename. 10 timestamped backups kept in `~/.openclaw/backups/`.
-- **Discord API caching** — Bot avatars and guild channel names fetched from Discord API, cached in memory for 30 minutes.
-- **No auth** — Local-only tool, no authentication layer.
+- **Agents from `agents.list[]`** — Not Discord accounts. Each agent has an isolated workspace with SOUL.md as the persona source.
+- **Discord accounts keyed by agent ID** — `discordAccounts[agent.id]` resolves channel access and avatar.
+- **Per-agent skills via workspace** — Install copies to `<workspace>/skills/`, remove deletes from workspace.
+- **Atomic config writes** — Temp file → backup → atomic rename. 10 timestamped backups in `~/.openclaw/backups/`.
+- **Discord API caching** — Avatars and channel names cached 30 minutes.
+- **No auth** — Local-only tool.
 
 ## License
 
