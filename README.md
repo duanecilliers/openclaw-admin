@@ -1,5 +1,7 @@
 # OpenClaw Admin
 
+> **⚠️ Discord-focused:** This dashboard is built for OpenClaw instances running **Discord bot agents** (multi-agent persona setup). It fetches avatars and channel names from the Discord API, and shows per-agent channel routing. The workspace editor, skills browser, cron manager, and config viewer work regardless of channel — but agent display is optimized for Discord.
+
 Web-based admin dashboard for managing an [OpenClaw](https://github.com/openclaw/openclaw) instance with multiple agents. Built for local, single-user use.
 
 ![OpenClaw Admin Dashboard](screenshot.png)
